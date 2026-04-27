@@ -1,1 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Pixellympics - Hürdenlauf</title>
+    <style>
+        body { background: #111; color: white; text-align: center; font-family: sans-serif; }
+        canvas { background: #d35400; border: 5px solid white; display: block; margin: 20px auto; }
+        .back-link { color: #aaa; text-decoration: none; border: 1px solid #555; padding: 5px 10px; }
+    </style>
+</head>
+<body>
 
+    <h1>HÜRDENLAUF</h1>
+    <p id="status">Laufen mit Pfeiltasten | Springen mit LEERTASTE</p>
+    <a href="index.html" class="back-link">Zurück zum Menü</a>
+
+    <canvas id="huerdenCanvas" width="800" height="250"></canvas>
+
+    <script>
+        window.onload = function() {
+            var canvas = document.getElementById('huerdenCanvas');
+            var ctx = canvas.getContext('2d');
+            var statusLabel = document.getElementById('status');
+
+            var px = 50, pspeed = 0, plastKey = "", pjump = 0, isJumping = false;
+            var oppx = 50, running = false, finished = false;
+            var hurdles = [300, 500, 700];
+
+            function render() {
+                ctx.fillStyle = "#d35400";
+                ctx.fillRect(0, 0, 800, 250);
+
+                ctx.fillStyle = "white";
+                ctx.fillRect(0, 125, 800, 2);
+                ctx.fillRect(720, 30, 20, 200);
+
+                ctx.fillStyle = "black";
+                for(var i=0; i<hurdles.length; i++) {
+                    ctx.fillRect(hurdles[i], 190, 10, 35);
+                }
+
+                if (running && !finished) {
+                    pspeed *= 0.95;
+                    px += pspeed;
+                    oppx += 3.7;
+
+                    for(var j=0; j<hurdles.length; j++) {
+                        if(px > hurdles[j]-15 && px < hurdles[j]+5 && pjump > -25) {
+                            pspeed = 0; // Gestolpert!
+                        }
+                    }
+
+                    if (px > 710 || oppx > 710) {
+                        finished = true;
+                        statusLabel.innerText = (px > oppx) ? "HÜRDEN-SIEG!" : "Gegner war schneller!";
+                    }
+                }
+
+                drawMan(px, 180 + pjump, "black");
+                drawMan(oppx, 80, "blue");
+                window.requestAnimationFrame(render);
+            }
+
+            function drawMan(x, y, color) {
+                ctx.strokeStyle = color; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.arc(x, y, 12, 0, 7); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(x, y+12); ctx.lineTo(x, y+40); ctx.stroke();
+            }
+
+            window.onkeydown = function(e) {
+                if (finished) return;
+                if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                    if (e.key !== plastKey) {
+                        running = true; pspeed += 2.4; plastKey = e.key;
+                    }
+                }
+                if (e.key === " " && !isJumping) {
+                    isJumping = true;
+                    var power = 15;
+                    var timer = setInterval(function() {
+                        pjump -= power; power -= 1;
+                        if (pjump >= 0) { pjump = 0; isJumping = false; clearInterval(timer); }
+                    }, 20);
+                }
+            };
+            render();
+        };
+    </script>
+</body>
+</html>
