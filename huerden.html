@@ -2,45 +2,42 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Pixel Games - Hürdenlauf</title>
+    <title>Pixel Games - Fullscreen Hurdles</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-        body { background: #1a1a1a; color: white; text-align: center; font-family: 'Press Start 2P', cursive; margin: 0; padding: 20px; overflow: hidden; }
-        canvas { background: #c0392b; border: 6px solid #fff; display: block; margin: 10px auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .ui-top { margin-bottom: 10px; }
-        .diff-btn { font-family: 'Press Start 2P', cursive; font-size: 0.7rem; padding: 10px; margin: 5px; cursor: pointer; border: 3px solid #fff; background: #333; color: white; }
-        .diff-btn:hover { background: #ee5253; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #1a1a1a; font-family: 'Press Start 2P', cursive; }
+        .ui-overlay { position: absolute; top: 20px; width: 100%; z-index: 10; pointer-events: none; text-align: center; }
+        .diff-btn, .back-btn { pointer-events: auto; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; padding: 10px; margin: 5px; cursor: pointer; border: 3px solid #fff; background: #333; color: white; }
         .active { background: #ee5253; border-color: #f1c40f; }
-        .status { font-size: 0.8rem; color: #f1c40f; margin: 10px; height: 1rem; }
-        .back { color: #aaa; text-decoration: none; font-family: sans-serif; font-size: 0.9rem; }
+        canvas { display: block; width: 100vw; height: 100vh; }
     </style>
 </head>
 <body>
 
-    <div class="ui-top">
-        <button class="diff-btn" onclick="setDiff(3.2, 0.3, this)">LEICHT</button>
-        <button class="diff-btn active" onclick="setDiff(3.9, 0.15, this)">MITTEL</button>
-        <button class="diff-btn" onclick="setDiff(4.6, 0.05, this)">PROFI</button>
+    <div class="ui-overlay">
+        <div>
+            <button class="diff-btn" onclick="setDiff(3.2, 0.3, this)">LEICHT</button>
+            <button class="diff-btn active" onclick="setDiff(3.9, 0.15, this)">MITTEL</button>
+            <button class="diff-btn" onclick="setDiff(4.8, 0.05, this)">PROFI</button>
+            <a href="index.html"><button class="back-btn">HUB</button></a>
+        </div>
+        <div id="status" style="color: #f1c40f; margin-top: 15px; font-size: 0.8rem;">SPRING MIT LEERTASTE!</div>
     </div>
 
-    <div id="status" class="status">LOKALER HÜRDEN-CUP 2026</div>
-
-    <canvas id="huerdenCanvas" width="800" height="350"></canvas>
-    <a href="index.html" class="back">← ZURÜCK ZUM HUB</a>
+    <canvas id="gameCanvas"></canvas>
 
     <script>
-        var canvas, ctx, statusLabel;
-        var px = 50, pspeed = 0, plastKey = "", pjump = 0, isJumping = false, pAnim = 0;
-        var oppx = 50, oppSpeed = 2.6, oppFail = 0.15, oppJump = 0, oppIsJumping = false;
-        var running = false, finished = false, startTime = 0, cameraX = 0;
-        var hurdles = [400, 700, 1000, 1300];
+        var canvas = document.getElementById('gameCanvas');
+        var ctx = canvas.getContext('2d');
+        var statusLabel = document.getElementById('status');
 
-        window.onload = function() {
-            canvas = document.getElementById('huerdenCanvas');
-            ctx = canvas.getContext('2d');
-            statusLabel = document.getElementById('status');
-            render();
-        };
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        var px = 50, pspeed = 0, plastKey = "", pjump = 0, isJumping = false, pAnim = 0;
+        var oppx = 50, oppSpeed = 3.9, oppFail = 0.15, oppJump = 0, oppIsJumping = false;
+        var running = false, finished = false, cameraX = 0;
+        var hurdles = [450, 850, 1250, 1650];
 
         window.setDiff = function(s, f, btn) {
             if(running) return;
@@ -50,81 +47,81 @@
         };
 
         function render() {
-            cameraX = px - 150; if (cameraX < 0) cameraX = 0;
+            cameraX = px - (canvas.width * 0.2); if (cameraX < 0) cameraX = 0;
+            let midH = canvas.height * 0.4;
 
-            // STADION
-            ctx.fillStyle = "#2c3e50"; ctx.fillRect(0, 0, 800, 350);
+            // HIMMEL & SONNE
+            ctx.fillStyle = "#4da6ff"; ctx.fillRect(0, 0, canvas.width, midH);
+            ctx.fillStyle = "#f1c40f"; ctx.beginPath(); ctx.arc(canvas.width-80, 60, 40, 0, 7); ctx.fill();
+
+            // TRIBÜNE (Parallax)
             let stadiumX = -(cameraX * 0.4) % 400;
-            for (let i = -1; i < 4; i++) {
+            ctx.fillStyle = "#7f8c8d"; ctx.fillRect(0, midH - 120, canvas.width, 120);
+            for (let i = -1; i < (canvas.width / 400) + 2; i++) {
                 let sPos = (i * 400) + stadiumX;
-                ctx.fillStyle = "#7f8c8d"; ctx.fillRect(sPos, 40, 380, 110);
-                for (let y = 50; y < 140; y += 12) {
-                    for (let x = 10; x < 370; x += 18) {
-                        ctx.fillStyle = ["#e74c3c","#f1c40f","#3498db","#ecf0f1"][Math.floor(Math.random()*4)];
-                        ctx.fillRect(sPos + x + (y%15), y, 7, 7);
+                for (let y = midH - 110; y < midH - 10; y += 15) {
+                    for (let x = 10; x < 380; x += 20) {
+                        ctx.fillStyle = ["#e74c3c","#f1c40f","#3498db","#ecf0f1"][(x+y)%4];
+                        ctx.fillRect(sPos + x, y, 8, 8);
                     }
                 }
             }
 
-            // TARTANBAHN
-            ctx.fillStyle = "#c0392b"; ctx.fillRect(0, 150, 800, 200);
-            ctx.strokeStyle = "white"; ctx.lineWidth = 4;
-            for(let j=0; j<4; j++) {
-                ctx.beginPath(); ctx.moveTo(0, 150 + j*60); ctx.lineTo(800, 150 + j*60); ctx.stroke();
+            // BAHN (Tartan)
+            ctx.fillStyle = "#c0392b"; ctx.fillRect(0, midH, canvas.width, canvas.height - midH);
+            let laneH = (canvas.height - midH) / 5;
+            ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 4;
+            for(let j=0; j<6; j++) {
+                ctx.beginPath(); ctx.moveTo(0, midH + j * laneH); ctx.lineTo(canvas.width, midH + j * laneH); ctx.stroke();
             }
 
-            // Hürden & Ziel
+            // HÜRDEN & ZIEL
             hurdles.forEach(hx => {
                 ctx.fillStyle = "black";
-                ctx.fillRect(hx - cameraX, 260, 10, 40); // Spieler
-                ctx.fillRect(hx - cameraX, 200, 10, 40); // Gegner
+                ctx.fillRect(hx - cameraX, midH + laneH*3.2, 15, laneH*0.8); // Spieler Hürde
+                ctx.fillRect(hx - cameraX, midH + laneH*1.2, 15, laneH*0.8); // Gegner Hürde
             });
-            ctx.fillStyle = "white"; ctx.fillRect(1600 - cameraX, 150, 40, 200);
+            ctx.fillStyle = "white"; ctx.fillRect(2000 - cameraX, midH, 50, canvas.height - midH);
 
-            // Logik
+            // LOGIK
             if (running && !finished) {
                 pspeed *= 0.95; px += pspeed; oppx += oppSpeed;
-                if (pspeed > 0.1) pAnim += pspeed * 0.12;
-
-                // Spieler Kollision
+                if (pspeed > 0.1 && !isJumping) pAnim += pspeed * 0.12;
                 hurdles.forEach(hx => {
-                    if(px > hx-20 && px < hx+5 && pjump > -30) pspeed = 0;
+                    if(px > hx-25 && px < hx+5 && pjump > -40) pspeed = 0;
                 });
-
-                // Gegner KI
                 hurdles.forEach(hx => {
-                    if(oppx > hx-50 && oppx < hx-40 && !oppIsJumping) {
+                    if(oppx > hx-60 && oppx < hx-50 && !oppIsJumping) {
                         if(Math.random() > oppFail) oppJumpAction();
-                        else { oppx -= 5; } // Kleiner Stolperer
+                        else { oppx -= 5; } 
                     }
                 });
-
-                if (px > 1600 || oppx > 1600) {
+                if (px > 2000 || oppx > 2000) {
                     finished = true;
-                    statusLabel.innerText = px > oppx ? "GOLD! R FÜR RESET" : "SILBER! R FÜR RESET";
+                    statusLabel.innerText = (px > oppx ? "GOLD! " : "SILBER! ") + " 'R' FÜR RESET";
                 }
             }
 
-            drawMan(px - cameraX, 280 + pjump, "black", pAnim);
-            drawMan(oppx - cameraX, 210 + oppJump, "blue", oppx * 0.1);
-            window.requestAnimationFrame(render);
+            drawMan(px - cameraX, midH + laneH*3.5 + pjump, "black", pAnim);
+            drawMan(oppx - cameraX, midH + laneH*1.5 + oppJump, "blue", oppx * 0.1);
+            requestAnimationFrame(render);
         }
 
         function oppJumpAction() {
-            oppIsJumping = true; var pow = 16;
+            oppIsJumping = true; var pow = 18;
             var t = setInterval(() => {
-                oppJump -= pow; pow -= 1;
+                oppJump -= pow; pow -= 1.2;
                 if(oppJump >= 0) { oppJump = 0; oppIsJumping = false; clearInterval(t); }
-            }, 22);
+            }, 25);
         }
 
         function drawMan(x, y, color, anim) {
-            var bob = Math.sin(anim)*5; var leg = Math.cos(anim)*15;
-            ctx.strokeStyle = color; ctx.lineWidth = 5;
-            ctx.beginPath(); ctx.arc(x, y-45+bob, 12, 0, 7); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(x, y-33+bob); ctx.lineTo(x, y+5+bob); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(x, y+5+bob); ctx.lineTo(x+leg, y+35); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(x, y+5+bob); ctx.lineTo(x-leg, y+35); ctx.stroke();
+            let bob = Math.sin(anim) * 5; let leg = Math.cos(anim) * 15;
+            ctx.strokeStyle = color; ctx.lineWidth = 6;
+            ctx.beginPath(); ctx.arc(x, y-60+bob, 15, 0, 7); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y-45+bob); ctx.lineTo(x, y+10+bob); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y+10+bob); ctx.lineTo(x+leg, y+50); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y+10+bob); ctx.lineTo(x-leg, y+50); ctx.stroke();
         }
 
         window.onkeydown = function(e) {
@@ -132,18 +129,19 @@
             if (finished) return;
             if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
                 if (e.key !== plastKey) {
-                    if(!running) { running = true; startTime = Date.now(); }
-                    pspeed += 2.5; plastKey = e.key;
+                    if(!running) { running = true; }
+                    pspeed += 2.6; plastKey = e.key;
                 }
             }
             if (e.key === " " && !isJumping) {
-                isJumping = true; var pow = 16;
+                isJumping = true; var pow = 18;
                 var t = setInterval(() => {
-                    pjump -= pow; pow -= 1;
+                    pjump -= pow; pow -= 1.2;
                     if(pjump >= 0) { pjump = 0; isJumping = false; clearInterval(t); }
-                }, 20);
+                }, 25);
             }
         };
+        render();
     </script>
 </body>
 </html>
