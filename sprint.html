@@ -5,40 +5,35 @@
     <title>Pixel Games - 100m Sprint</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-        body { background: #111; color: white; text-align: center; font-family: sans-serif; margin: 0; padding: 20px; }
-        canvas { background: #27ae60; border: 5px solid white; display: block; margin: 10px auto; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        .back-link { color: #aaa; text-decoration: none; border: 1px solid #555; padding: 5px 10px; font-size: 0.8rem; }
-        .difficulty-bits { margin: 15px; }
-        button { 
-            font-family: 'Press Start 2P', cursive; 
-            font-size: 0.6rem; padding: 10px; margin: 5px; 
-            cursor: pointer; border: 2px solid white; background: #333; color: white;
-        }
-        button:hover { background: #ee5253; }
-        .active-diff { background: #ee5253; border-color: yellow; }
+        body { background: #1a1a1a; color: white; text-align: center; font-family: 'Press Start 2P', cursive; margin: 0; padding: 20px; overflow: hidden; }
+        canvas { background: #27ae60; border: 6px solid #fff; display: block; margin: 10px auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .ui-top { margin-bottom: 10px; }
+        .diff-btn { font-family: 'Press Start 2P', cursive; font-size: 0.7rem; padding: 10px; margin: 5px; cursor: pointer; border: 3px solid #fff; background: #333; color: white; }
+        .diff-btn:hover { background: #ee5253; }
+        .active { background: #ee5253; border-color: #f1c40f; }
+        .status { font-size: 0.8rem; color: #f1c40f; margin: 10px; height: 1rem; }
+        .back { color: #aaa; text-decoration: none; font-family: sans-serif; font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
-    <h1>100m SPRINT</h1>
-    
-    <div class="difficulty-bits">
-        <button id="btn-easy" onclick="setDiff(3.5)">LEICHT</button>
-        <button id="btn-med" class="active-diff" onclick="setDiff(4.5)">MITTEL</button>
-        <button id="btn-hard" onclick="setDiff(5.5)">PROFI</button>
+    <div class="ui-top">
+        <button class="diff-btn" onclick="setDiff(3.5, this)">LEICHT</button>
+        <button class="diff-btn active" onclick="setDiff(4.6, this)">MITTEL</button>
+        <button class="diff-btn" onclick="setDiff(5.5, this)">PROFI</button>
     </div>
 
-    <p id="status">Bereit machen...</p>
-    <a href="index.html" class="back-link">Zurück zum Menü</a>
+    <div id="status" class="status">DRÜCKE LINKS/RECHTS ZUM START!</div>
 
-    <canvas id="sprintCanvas" width="800" height="300"></canvas>
+    <canvas id="sprintCanvas" width="800" height="350"></canvas>
+    <a href="index.html" class="back">← ZURÜCK ZUM HUB</a>
 
     <script>
         var canvas, ctx, statusLabel;
         var px = 50, pspeed = 0, plastKey = "", pAnim = 0;
-        var oppx = 50, oppSpeed = 4.5;
+        var oppx = 50, oppSpeed = 4.6;
         var running = false, finished = false, startTime = 0;
-        var cameraX = 0; // Der "Zoom"/Kamera-Fokus
+        var cameraX = 0;
 
         window.onload = function() {
             canvas = document.getElementById('sprintCanvas');
@@ -47,86 +42,84 @@
             render();
         };
 
-        window.setDiff = function(speed) {
+        window.setDiff = function(s, btn) {
             if(running) return;
-            oppSpeed = speed;
-            document.querySelectorAll('button').forEach(b => b.classList.remove('active-diff'));
-            event.target.classList.add('active-diff');
+            oppSpeed = s;
+            document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
         };
 
         function render() {
-            // 1. Kamera-Logik (wie gehabt)
             cameraX = px - 150;
             if (cameraX < 0) cameraX = 0;
 
-            // --- HINTERGRUND: STADION ---
-    
-            // Himmel (Abenddämmerung)
-            ctx.fillStyle = "#2c3e50";
-            ctx.fillRect(0, 0, 800, 300);
+            // STADION HINTERGRUND
+            ctx.fillStyle = "#2c3e50"; // Himmel
+            ctx.fillRect(0, 0, 800, 350);
 
-            // Entfernte Tribünen (Parallax: cameraX * 0.5 zieht langsamer vorbei)
-            let stadiumX = -(cameraX * 0.5) % 400; 
-    
-            for (let i = -1; i < 3; i++) {
-                let startPos = (i * 400) + stadiumX;
-        
-                // Beton-Struktur der Tribüne
-                ctx.fillStyle = "#7f8c8d";
-                ctx.fillRect(startPos, 20, 380, 100);
-        
-                // Zuschauer-Pixel (viele kleine bunte Punkte)
-                for (let y = 30; y < 100; y += 10) {
-                    for (let x = 10; x < 370; x += 15) {
-                        let colors = ["#e74c3c", "#f1c40f", "#3498db", "#ecf0f1"];
-                        ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
-                        ctx.fillRect(startPos + x + (y % 20), y, 8, 8);
+            // Tribünen (Parallax)
+            let stadiumX = -(cameraX * 0.4) % 400;
+            for (let i = -1; i < 4; i++) {
+                let sPos = (i * 400) + stadiumX;
+                ctx.fillStyle = "#7f8c8d"; // Beton
+                ctx.fillRect(sPos, 40, 380, 110);
+                // Zuschauer
+                for (let y = 50; y < 140; y += 12) {
+                    for (let x = 10; x < 370; x += 18) {
+                        ctx.fillStyle = ["#e74c3c","#f1c40f","#3498db","#ecf0f1"][Math.floor(Math.random()*4)];
+                        ctx.fillRect(sPos + x + (y%15), y, 7, 7);
                     }
                 }
-
-                // Flutlicht-Masten
-                ctx.fillStyle = "#34495e";
-                ctx.fillRect(startPos + 180, 0, 20, 120);
-                ctx.fillStyle = "#f1c40f"; // Licht-Pixel oben
-                ctx.fillRect(startPos + 175, 0, 30, 20);
+                ctx.fillStyle = "#34495e"; // Masten
+                ctx.fillRect(sPos + 185, 0, 10, 150);
             }
 
-            // --- VORDERGRUND: RENNBAHN ---
-    
-            // Rasen/Bahn (zieht mit voller Geschwindigkeit cameraX vorbei)
+            // RENNBAHN
             ctx.fillStyle = "#27ae60";
-            ctx.fillRect(0, 120, 800, 180);
+            ctx.fillRect(0, 150, 800, 200);
+            ctx.strokeStyle = "white"; ctx.lineWidth = 4;
+            for(let j=0; j<4; j++) {
+                ctx.beginPath(); ctx.moveTo(0, 150 + j*60); ctx.lineTo(800, 150 + j*60); ctx.stroke();
+            }
 
-            // Weiße Linien und Markierungen (relativ zu cameraX)
-            ctx.strokeStyle = "white";
-            ctx.lineWidth = 4;
-    
-            // Start/Ziel und Bahnen wie im letzten Code...
-            // [Hier kommt der Rest deiner Logik: Bahnen, Ziellinie, Physik]
+            // Ziellinie
+            ctx.fillStyle = "white";
+            ctx.fillRect(1550 - cameraX, 150, 40, 200);
 
-            // 5. Männchen zeichnen
-            drawMan(px - cameraX, 230, "black", pAnim);
-            drawMan(oppx - cameraX, 170, "blue", oppx * 0.1);
+            // Logik
+            if (running && !finished) {
+                pspeed *= 0.96; px += pspeed; oppx += oppSpeed;
+                if (pspeed > 0.1) pAnim += pspeed * 0.12;
+                let zeit = ((Date.now() - startTime)/1000).toFixed(2);
+                statusLabel.innerText = "ZEIT: " + zeit + "s";
+                if (px > 1550 || oppx > 1550) {
+                    finished = true;
+                    statusLabel.innerText = (px > oppx ? "SIEG! " : "NIEDERLAGE! ") + "R FÜR RESET";
+                }
+            }
 
+            drawMan(px - cameraX, 280, "black", pAnim);
+            drawMan(oppx - cameraX, 210, "blue", oppx * 0.1);
             window.requestAnimationFrame(render);
         }
-    
+
         function drawMan(x, y, color, anim) {
             var bob = Math.sin(anim) * 5;
             var leg = Math.cos(anim) * 15;
-            ctx.strokeStyle = color; ctx.lineWidth = 4;
-            ctx.beginPath(); ctx.arc(x, y - 40 + bob, 12, 0, 7); ctx.stroke(); // Kopf
-            ctx.beginPath(); ctx.moveTo(x, y - 28 + bob); ctx.lineTo(x, y + 5 + bob); ctx.stroke(); // Körper
-            ctx.beginPath(); ctx.moveTo(x, y + 5 + bob); ctx.lineTo(x + leg, y + 30); ctx.stroke(); // Bein 1
-            ctx.beginPath(); ctx.moveTo(x, y + 5 + bob); ctx.lineTo(x - leg, y + 30); ctx.stroke(); // Bein 2
+            ctx.strokeStyle = color; ctx.lineWidth = 5;
+            ctx.beginPath(); ctx.arc(x, y-45+bob, 12, 0, 7); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y-33+bob); ctx.lineTo(x, y+5+bob); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y+5+bob); ctx.lineTo(x+leg, y+35); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y+5+bob); ctx.lineTo(x-leg, y+35); ctx.stroke();
         }
 
         window.onkeydown = function(e) {
-            if (finished) { if(e.key === "r") location.reload(); return; }
+            if (e.key.toLowerCase() === "r") location.reload();
+            if (finished) return;
             if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
                 if (e.key !== plastKey) {
                     if(!running) { running = true; startTime = Date.now(); }
-                    pspeed += 2.5; plastKey = e.key;
+                    pspeed += 2.6; plastKey = e.key;
                 }
             }
         };
