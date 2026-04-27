@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Pixel Games - Hochsprung</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #1a1a1a; font-family: 'Press Start 2P', cursive; }
+        .ui-overlay { position: absolute; top: 20px; width: 100%; z-index: 10; pointer-events: none; text-align: center; }
+        .btn { pointer-events: auto; font-family: 'Press Start 2P', cursive; font-size: 0.7rem; padding: 12px; margin: 5px; cursor: pointer; border: 3px solid #fff; background: #333; color: white; }
+        .btn:hover { background: #ee5253; }
+        .active { background: #ee5253; border-color: #f1c40f; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        
+        /* Kraft-Meter */
+        #power-container {
+            position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
+            width: 250px; height: 30px; border: 4px solid white; background: #222; display: none;
+        }
+        #power-bar { width: 0%; height: 100%; background: #f1c40f; }
+        .power-label { position: absolute; top: -25px; width: 100%; text-align: center; font-size: 0.6rem; color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="ui-overlay">
+        <div id="setup-menu">
+            <p style="font-size: 0.8rem; color: #f1c40f; margin-bottom: 20px;">WÄHLE DIE HÖHE:</p>
+            <button class="btn" onclick="setHeight(1.80, this)">1.80m</button>
+            <button class="btn active" onclick="setHeight(2.10, this)">2.10m</button>
+            <button class="btn" onclick="setHeight(2.45, this)">2.45m (WR)</button>
+            <br><br>
+            <button class="btn" style="background: #27ae60;" onclick="startGame()">START</button>
+            <a href="index.html"><button class="btn" style="background: #555;">HUB</button></a>
+        </div>
+        <div id="status" style="color: #f1c40f; margin-top: 15px; font-size: 0.8rem; display: none;">ANLAUF & LEERTASTE HALTEN FÜR SPRUNGKRAFT!</div>
+    </div>
+
+    <div id="power-container">
+        <div class="power-label">SPRUNGKRAFT</div>
+        <div id="power-bar"></div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        var canvas = document.getElementById('gameCanvas');
+        var ctx = canvas.getContext('2d');
+        var statusLabel = document.getElementById('status');
+        var setupMenu = document.getElementById('setup-menu');
+        var powerContainer = document.getElementById('power-container');
+        var powerBar = document.getElementById('power-bar');
+
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        // Spielvariablen
+        var targetHeight = 2.10;
+        var px = 50, pspeed = 0, plastKey = "", pAnim = 0;
+        var pjump = 0, pY = 0;
+        var running = false, gameActive = false, finished = false, isJumping = false, isCharging = false;
+        var power = 0, powerDir = 1;
+        var cameraX = 0;
+
+        function setHeight(h, btn) {
+            targetHeight = h;
+            document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        function startGame() {
+            setupMenu.style.display = "none";
+            statusLabel.style.display = "block";
+            gameActive = true;
+        }
+
+        function render() {
+            cameraX = px - (canvas.width * 0.3);
+            if (cameraX < 0) cameraX = 0;
+
+            let midH = canvas.height * 0.4;
+            let trackY = midH + (canvas.height - midH) * 0.4;
+
+            // STADION & HIMMEL
+            ctx.fillStyle = "#4da6ff"; ctx.fillRect(0, 0, canvas.width, midH);
+            let stadiumX = -(cameraX * 0.4) % 400;
+            ctx.fillStyle = "#7f8c8d"; ctx.fillRect(0, midH - 120, canvas.width, 120);
+            for (let i = -1; i < (canvas.width / 400) + 2; i++) {
+                let sPos = (i * 400) + stadiumX;
+                for (let y = midH - 110; y < midH - 10; y += 15) {
+                    for (let x = 10; x < 380; x += 20) {
+                        ctx.fillStyle = ["#e74c3c","#f1c40f","#3498db","#ecf0f1"][(x+y)%4];
+                        ctx.fillRect(sPos + x, y, 8, 8);
+                    }
+                }
+            }
+
+            // BODEN
+            ctx.fillStyle = "#27ae60"; ctx.fillRect(0, midH, canvas.width, canvas.height - midH);
+            
+            // Matte & Latte (bei x=1000)
+            let matX = 1000 - cameraX;
+            let barY = trackY - (targetHeight * 60); // 1m = 60 pixel
+
+            // Matte
+            ctx.fillStyle = "#3498db"; ctx.fillRect(matX, trackY - 20, 150, 40);
+            
+            // Ständer & Latte
+            ctx.strokeStyle = "white"; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(matX, trackY); ctx.lineTo(matX, barY - 20); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(matX + 150, trackY); ctx.lineTo(matX + 150, barY - 20); ctx.stroke();
+            
+            ctx.strokeStyle = "#e67e22"; ctx.lineWidth = 5;
+            ctx.beginPath(); ctx.moveTo(matX, barY); ctx.lineTo(matX + 150, barY); ctx.stroke();
+
+            // LOGIK
+            if (gameActive && !finished) {
+                if (!isJumping) {
+                    pspeed *= 0.97; px += pspeed;
+                    pAnim += pspeed * 0.15;
+
+                    if (isCharging) {
+                        power += 2 * powerDir;
+                        if (power >= 100 || power <= 0) powerDir *= -1;
+                        powerBar.style.width = power + "%";
+                    }
+
+                    // Automatisch springen wenn zu nah an der Matte ohne Leertaste
+                    if (px > 980 && !isJumping && !isCharging) {
+                        finished = true;
+                        statusLabel.innerText = "ZU SPÄT! (R)";
+                    }
+                } else {
+                    // Sprungphysik
+                    px += pspeed * 0.5;
+                    pY += vy;
+                    vy += 0.6; // Gravitation
+
+                    // Kollisionsabfrage Latte
+                    if (Math.abs(px - (1000 + 75)) < 50) {
+                        let manHeadY = trackY + pY - 60;
+                        if (manHeadY > barY - 10 && manHeadY < barY + 10) {
+                            statusLabel.innerText = "GERISSEN! (R)";
+                            finished = true;
+                        }
+                    }
+
+                    if (pY >= 0) {
+                        pY = 0;
+                        isJumping = false;
+                        finished = true;
+                        if (statusLabel.innerText.indexOf("GERISSEN") === -1) {
+                            statusLabel.innerText = "ÜBERSPRUNGEN! " + targetHeight + "m geschafft! (R)";
+                        }
+                    }
+                }
+            }
+
+            drawMan(px - cameraX, trackY + pY, isJumping ? "blue" : "black", pAnim);
+            requestAnimationFrame(render);
+        }
+
+        var vy = 0;
+        function drawMan(x, y, color, anim) {
+            let bob = isJumping ? 0 : Math.sin(anim) * 5;
+            let leg = isJumping ? 25 : Math.cos(anim) * 15;
+            ctx.strokeStyle = color; ctx.lineWidth = 6;
+            ctx.beginPath(); ctx.arc(x, y-60+bob, 15, 0, 7); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y-45+bob); ctx.lineTo(x, y+10+bob); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y+10+bob); ctx.lineTo(x+leg, y+50); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y+10+bob); ctx.lineTo(x-leg, y+50); ctx.stroke();
+        }
+
+        window.onkeydown = function(e) {
+            if (e.key.toLowerCase() === "r") location.reload();
+            if (!gameActive || finished || isJumping) return;
+
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                if (e.key !== plastKey && !isCharging) {
+                    pspeed += 2.2; plastKey = e.key;
+                    running = true;
+                }
+            }
+            if (e.key === " " && running) {
+                isCharging = true;
+                powerContainer.style.display = "block";
+            }
+        };
+
+        window.onkeyup = function(e) {
+            if (e.key === " " && isCharging) {
+                isCharging = false;
+                isJumping = true;
+                powerContainer.style.display = "none";
+                
+                // Sprunghöhe basierend auf Power & Speed
+                let jumpForce = (power / 100) * 18 + (pspeed * 0.5);
+                vy = -jumpForce;
+            }
+        };
+
+        render();
+    </script>
+</body>
+</html>
