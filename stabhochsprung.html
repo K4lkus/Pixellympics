@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Pixel Games - Stabhochsprung</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #1a1a1a; font-family: 'Press Start 2P', cursive; }
+        .ui-overlay { position: absolute; top: 20px; width: 100%; z-index: 10; pointer-events: none; text-align: center; }
+        .btn { pointer-events: auto; font-family: 'Press Start 2P', cursive; font-size: 0.7rem; padding: 12px; margin: 5px; cursor: pointer; border: 3px solid #fff; background: #333; color: white; }
+        .active { background: #ee5253; border-color: #f1c40f; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        
+        #instruction { position: absolute; bottom: 100px; width: 100%; text-align: center; color: #f1c40f; font-size: 0.8rem; text-shadow: 2px 2px #000; }
+    </style>
+</head>
+<body>
+
+    <div class="ui-overlay">
+        <div id="setup-menu">
+            <p style="font-size: 0.8rem; color: #f1c40f; margin-bottom: 20px;">WÄHLE DIE HÖHE:</p>
+            <button class="btn" onclick="setHeight(5.10, this)">5.10m</button>
+            <button class="btn active" onclick="setHeight(5.80, this)">5.80m</button>
+            <button class="btn" onclick="setHeight(6.25, this)">6.25m (WR)</button>
+            <br><br>
+            <button class="btn" style="background: #27ae60;" onclick="startGame()">START</button>
+            <a href="index.html"><button class="btn" style="background: #555;">HUB</button></a>
+        </div>
+        <div id="status" style="color: #f1c40f; margin-top: 15px; font-size: 0.8rem;"></div>
+    </div>
+
+    <div id="instruction"></div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        var canvas = document.getElementById('gameCanvas');
+        var ctx = canvas.getContext('2d');
+        var statusLabel = document.getElementById('status');
+        var instrLabel = document.getElementById('instruction');
+        var setupMenu = document.getElementById('setup-menu');
+
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        // Game States: 0=Menu, 1=Run, 2=Planting (Stab einstecken), 3=Vaulting (Flug), 4=Result
+        var gameState = 0;
+        var targetHeight = 5.80;
+        var px = 50, pspeed = 0, pY = 0, plastKey = "", pAnim = 0;
+        var cameraX = 0, poleAngle = 0, poleFlex = 0, vy = 0;
+
+        function setHeight(h, btn) {
+            targetHeight = h;
+            document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        function startGame() {
+            setupMenu.style.display = "none";
+            gameState = 1;
+            instrLabel.innerText = "WECHSEL PFEILTASTEN FÜR ANLAUF!";
+        }
+
+        function render() {
+            cameraX = px - (canvas.width * 0.3);
+            if (cameraX < 0) cameraX = 0;
+            let midH = canvas.height * 0.4;
+            let trackY = midH + (canvas.height - midH) * 0.6;
+
+            // BACKGROUND
+            ctx.fillStyle = "#4da6ff"; ctx.fillRect(0, 0, canvas.width, midH);
+            ctx.fillStyle = "#7f8c8d"; ctx.fillRect(0, midH - 120, canvas.width, 120);
+
+            // TRACK & PIT
+            ctx.fillStyle = "#27ae60"; ctx.fillRect(0, midH, canvas.width, canvas.height - midH);
+            ctx.fillStyle = "#c0392b"; ctx.fillRect(0-cameraX, trackY, 1000, 40); // Runway
+            
+            // Matte & Latte
+            let matX = 1000 - cameraX;
+            let barY = trackY - (targetHeight * 40); 
+            ctx.fillStyle = "#3498db"; ctx.fillRect(matX, trackY - 30, 200, 60); // Matte
+            
+            // Latte
+            ctx.strokeStyle = "white"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(matX + 20, trackY); ctx.lineTo(matX + 20, barY - 50); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(matX + 180, trackY); ctx.lineTo(matX + 180, barY - 50); ctx.stroke();
+            ctx.strokeStyle = "#e67e22"; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(matX + 20, barY); ctx.lineTo(matX + 180, barY); ctx.stroke();
+
+            // LOGIC
+            if (gameState === 1) { // Running
+                pspeed *= 0.98; px += pspeed; pAnim += pspeed * 0.15;
+                if (px > 850) instrLabel.innerText = "JETZT LEERTASTE GEDRÜCKT HALTEN!";
+                if (px > 990) { gameState = 4; statusLabel.innerText = "ZU SPÄT! (R)"; instrLabel.innerText = ""; }
+            } 
+            else if (gameState === 2) { // Planting & Bending
+                poleAngle += 0.05;
+                poleFlex = Math.sin(poleAngle) * 40;
+                px += pspeed * 0.2;
+                if (px > 1000) px = 1000;
+            }
+            else if (gameState === 3) { // Vaulting
+                px += pspeed * 0.6;
+                pY += vy; vy += 0.5;
+                // Collision Bar
+                if (Math.abs(px - 1100) < 60 && (trackY + pY - 40) > barY - 10 && (trackY + pY - 40) < barY + 10) {
+                    statusLabel.innerText = "GERISSEN! (R)";
+                }
+                if (pY >= 0) {
+                    pY = 0; gameState = 4;
+                    if (statusLabel.innerText === "") statusLabel.innerText = "ERFOLGREICH! " + targetHeight + "m! (R)";
+                }
+            }
+
+            drawPlayer(px - cameraX, trackY + pY, pAnim);
+            requestAnimationFrame(render);
+        }
+
+        function drawPlayer(x, y, anim) {
+            let bob = (gameState === 3) ? 0 : Math.sin(anim) * 5;
+            ctx.strokeStyle = "black"; ctx.lineWidth = 6;
+            // Body
+            ctx.beginPath(); ctx.arc(x, y-50+bob, 12, 0, 7); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y-38+bob); ctx.lineTo(x, y+5+bob); ctx.stroke();
+            
+            // Stab
+            ctx.strokeStyle = "#f1c40f"; ctx.lineWidth = 3;
+            ctx.save();
+            ctx.translate(x, y - 20 + bob);
+            if (gameState === 1) ctx.rotate(-Math.PI/4);
+            if (gameState === 2) {
+                ctx.rotate(0);
+                // Stab-Biegung zeichnen
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(50, -poleFlex*2, 0, -200);
+                ctx.stroke();
+            } else {
+                ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(0, -180); ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        window.onkeydown = function(e) {
+            if (e.key.toLowerCase() === "r") location.reload();
+            if (gameState === 1) {
+                if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && e.key !== plastKey) {
+                    pspeed += 2.0; plastKey = e.key;
+                }
+                if (e.key === " " && px > 700) {
+                    gameState = 2;
+                    instrLabel.innerText = "HALTEN ZUM BIEGEN... LOSLASSEN ZUM ABSPRUNG!";
+                }
+            }
+        };
+
+        window.onkeyup = function(e) {
+            if (e.key === " " && gameState === 2) {
+                gameState = 3;
+                instrLabel.innerText = "";
+                vy = - (pspeed * 1.5 + poleFlex * 0.5); // Kombinierte Kraft
+            }
+        };
+
+        render();
+    </script>
+</body>
+</html>
