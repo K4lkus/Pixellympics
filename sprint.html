@@ -55,70 +55,62 @@
         };
 
         function render() {
-            // 1. Kamera-Logik: Die Kamera folgt dem Spieler (px)
-            // Wir ziehen cameraX so ab, dass der Spieler immer bei x=150 bleibt
+            // 1. Kamera-Logik (wie gehabt)
             cameraX = px - 150;
-            if (cameraX < 0) cameraX = 0; // Nicht vor den Start schauen
+            if (cameraX < 0) cameraX = 0;
 
-            // 2. Hintergrund (Rasen)
-            ctx.fillStyle = "#27ae60";
+            // --- HINTERGRUND: STADION ---
+    
+            // Himmel (Abenddämmerung)
+            ctx.fillStyle = "#2c3e50";
             ctx.fillRect(0, 0, 800, 300);
 
-            // 3. Gezimmte Bahnen & Markierungen
+            // Entfernte Tribünen (Parallax: cameraX * 0.5 zieht langsamer vorbei)
+            let stadiumX = -(cameraX * 0.5) % 400; 
+    
+            for (let i = -1; i < 3; i++) {
+                let startPos = (i * 400) + stadiumX;
+        
+                // Beton-Struktur der Tribüne
+                ctx.fillStyle = "#7f8c8d";
+                ctx.fillRect(startPos, 20, 380, 100);
+        
+                // Zuschauer-Pixel (viele kleine bunte Punkte)
+                for (let y = 30; y < 100; y += 10) {
+                    for (let x = 10; x < 370; x += 15) {
+                        let colors = ["#e74c3c", "#f1c40f", "#3498db", "#ecf0f1"];
+                        ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+                        ctx.fillRect(startPos + x + (y % 20), y, 8, 8);
+                    }
+                }
+
+                // Flutlicht-Masten
+                ctx.fillStyle = "#34495e";
+                ctx.fillRect(startPos + 180, 0, 20, 120);
+                ctx.fillStyle = "#f1c40f"; // Licht-Pixel oben
+                ctx.fillRect(startPos + 175, 0, 30, 20);
+            }
+
+            // --- VORDERGRUND: RENNBAHN ---
+    
+            // Rasen/Bahn (zieht mit voller Geschwindigkeit cameraX vorbei)
+            ctx.fillStyle = "#27ae60";
+            ctx.fillRect(0, 120, 800, 180);
+
+            // Weiße Linien und Markierungen (relativ zu cameraX)
             ctx.strokeStyle = "white";
             ctx.lineWidth = 4;
-            
-            // Wir zeichnen alles relativ zur cameraX!
-            var trackWidth = 2000; // Die Bahn ist jetzt virtuell viel länger
-            
-            // Startlinie
-            ctx.fillStyle = "white";
-            ctx.fillRect(50 - cameraX, 50, 10, 200);
+    
+            // Start/Ziel und Bahnen wie im letzten Code...
+            // [Hier kommt der Rest deiner Logik: Bahnen, Ziellinie, Physik]
 
-            // Bahnbegrenzungen (gezogen über die gesamte Länge)
-            for(var i=0; i < 4; i++) {
-                var y = 50 + (i * 65);
-                ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(800, y);
-                ctx.stroke();
-            }
-
-            // Distanz-Markierungen (alle 200 Pixel ein Strich)
-            ctx.fillStyle = "rgba(255,255,255,0.3)";
-            for(var m=0; m < trackWidth; m+=200) {
-                ctx.fillRect(m - cameraX, 50, 2, 200);
-            }
-
-            // Ziellinie (bei 1500 Pixeln)
-            ctx.fillStyle = "white";
-            ctx.fillRect(1500 - cameraX, 50, 30, 200);
-
-            // 4. Logik
-            if (running && !finished) {
-                pspeed *= 0.96;
-                px += pspeed;
-                oppx += oppSpeed;
-                
-                if (pspeed > 0.1) pAnim += pspeed * 0.1;
-
-                var zeit = ((Date.now() - startTime) / 1000).toFixed(2);
-                statusLabel.innerText = "Distanz: " + (px/15).toFixed(0) + "m | Zeit: " + zeit + "s";
-
-                if (px > 1500 || oppx > 1500) {
-                    finished = true;
-                    var win = px > oppx;
-                    statusLabel.innerText = (win ? "SIEG! Zeit: " : "VERLOREN! Zeit: ") + zeit + "s";
-                }
-            }
-
-            // 5. Männchen zeichnen (ebenfalls relativ zur Kamera!)
-            drawMan(px - cameraX, 180, "black", pAnim);
-            drawMan(oppx - cameraX, 115, "blue", oppx * 0.1);
+            // 5. Männchen zeichnen
+            drawMan(px - cameraX, 230, "black", pAnim);
+            drawMan(oppx - cameraX, 170, "blue", oppx * 0.1);
 
             window.requestAnimationFrame(render);
         }
-
+    
         function drawMan(x, y, color, anim) {
             var bob = Math.sin(anim) * 5;
             var leg = Math.cos(anim) * 15;
