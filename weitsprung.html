@@ -2,99 +2,112 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Pixellympics - Weitsprung</title>
+    <title>Pixel Games - Weitsprung</title>
     <style>
-        body { background: #111; color: white; text-align: center; font-family: sans-serif; }
-        canvas { background: #e67e22; border: 5px solid white; display: block; margin: 20px auto; }
-        .back-link { color: #aaa; text-decoration: none; border: 1px solid #555; padding: 5px 10px; }
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        body { background: #1a1a1a; color: white; text-align: center; font-family: 'Press Start 2P', cursive; margin: 0; padding: 20px; overflow: hidden; }
+        canvas { background: #27ae60; border: 6px solid #fff; display: block; margin: 10px auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .status { font-size: 0.8rem; color: #f1c40f; margin: 10px; height: 1.2rem; }
+        .back { color: #aaa; text-decoration: none; font-family: sans-serif; font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
     <h1>WEITSPRUNG</h1>
-    <p id="status">Lauf so schnell du kannst!</p>
-    <a href="index.html" class="back-link">Zurück zum Menü</a>
+    <div id="status" class="status">RENN LOS UND SPRING MIT LEERTASTE!</div>
 
-    <canvas id="jumpCanvas" width="800" height="250"></canvas>
+    <canvas id="jumpCanvas" width="800" height="350"></canvas>
+    <a href="index.html" class="back">← ZURÜCK ZUM HUB</a>
 
     <script>
+        var canvas, ctx, statusLabel;
+        var px = 50, pspeed = 0, plastKey = "", pjump = 0, isJumping = false, pAnim = 0;
+        var running = false, finished = false, cameraX = 0, jumpedAtX = 0;
+
         window.onload = function() {
-            var canvas = document.getElementById('jumpCanvas');
-            var ctx = canvas.getContext('2d');
-            var statusLabel = document.getElementById('status');
+            canvas = document.getElementById('jumpCanvas');
+            ctx = canvas.getContext('2d');
+            statusLabel = document.getElementById('status');
+            render();
+        };
 
-            var x = 50;
-            var speed = 0;
-            var jumpY = 0;
-            var isJumping = false;
-            var lastKey = "";
-            var finished = false;
-            var jumpedAtX = 0;
+        function render() {
+            cameraX = px - 200;
+            if (cameraX < 0) cameraX = 0;
 
-            function render() {
-                ctx.fillStyle = "#e67e22"; // Sand/Bahn-Farbe
-                ctx.fillRect(0, 0, 800, 250);
-
-                // Absprunglinie (Weiß/Rot)
-                ctx.fillStyle = "white";
-                ctx.fillRect(550, 150, 50, 10);
-                ctx.fillStyle = "red";
-                ctx.fillRect(600, 150, 10, 10);
-
-                // Sandgrube (helleres Orange/Gelb)
-                ctx.fillStyle = "#f1c40f";
-                ctx.fillRect(610, 160, 190, 80);
-
-                // Logik
-                if (!finished) {
-                    speed *= 0.96;
-                    x += speed;
-                }
-
-                // Zeichnen
-                ctx.strokeStyle = "black";
-                ctx.lineWidth = 4;
-                ctx.beginPath(); ctx.arc(x, 160 + jumpY, 12, 0, 7); ctx.stroke(); // Kopf
-                ctx.beginPath(); ctx.moveTo(x, 172 + jumpY); ctx.lineTo(x, 200 + jumpY); ctx.stroke(); // Körper
-
-                window.requestAnimationFrame(render);
-            }
-
-            window.onkeydown = function(e) {
-                if (finished) return;
-
-                if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-                    if (e.key !== lastKey) {
-                        speed += 2.2;
-                        lastKey = e.key;
+            // STADION HINTERGRUND
+            ctx.fillStyle = "#2c3e50"; ctx.fillRect(0, 0, 800, 350);
+            let stadiumX = -(cameraX * 0.4) % 400;
+            for (let i = -1; i < 4; i++) {
+                let sPos = (i * 400) + stadiumX;
+                ctx.fillStyle = "#7f8c8d"; ctx.fillRect(sPos, 40, 380, 110);
+                for (let y = 50; y < 140; y += 12) {
+                    for (let x = 10; x < 370; x += 18) {
+                        ctx.fillStyle = ["#e74c3c","#f1c40f","#3498db","#ecf0f1"][Math.floor(Math.random()*4)];
+                        ctx.fillRect(sPos + x + (y%15), y, 7, 7);
                     }
                 }
+            }
 
-                if (e.key === " " && !isJumping) {
-                    isJumping = true;
-                    jumpedAtX = x;
-                    var power = 15;
-                    var timer = setInterval(function() {
-                        jumpY -= power;
-                        power -= 1;
-                        if (jumpY >= 0) {
-                            jumpY = 0;
-                            isJumping = false;
-                            finished = true;
-                            clearInterval(timer);
-                            
-                            // Ergebnis berechnen
-                            if (jumpedAtX > 600) {
-                                statusLabel.innerText = "UNGÜLTIG! Übertreten!";
-                            } else {
-                                var weite = ((x - jumpedAtX) / 20).toFixed(2);
-                                statusLabel.innerText = "Sprungweite: " + weite + " Meter!";
-                            }
-                        }
-                    }, 20);
+            // BODEN & ANLAUFBAHN
+            ctx.fillStyle = "#27ae60"; ctx.fillRect(0, 150, 800, 200);
+            ctx.fillStyle = "#c0392b"; ctx.fillRect(0 - cameraX, 250, 1200, 60); // Anlaufbahn
+
+            // ABSPRUNGLINIE (bei x=1100)
+            ctx.fillStyle = "white"; ctx.fillRect(1100 - cameraX, 250, 40, 60);
+            ctx.fillStyle = "red"; ctx.fillRect(1140 - cameraX, 250, 10, 60);
+
+            // SANDGRUBE
+            ctx.fillStyle = "#f1c40f"; ctx.fillRect(1150 - cameraX, 250, 600, 80);
+
+            // Logik
+            if (running && !finished) {
+                pspeed *= 0.97; px += pspeed;
+                if (!isJumping) pAnim += pspeed * 0.15;
+
+                if (px > 1700) stopGame();
+            }
+
+            drawMan(px - cameraX, 260 + pjump, "black", pAnim);
+            window.requestAnimationFrame(render);
+        }
+
+        function stopGame() {
+            finished = true;
+            if (jumpedAtX > 1140) statusLabel.innerText = "UNGÜLTIG! ÜBERTRETEN! (R für Reset)";
+            else if (jumpedAtX === 0) statusLabel.innerText = "NICHT GESPRUNGEN! (R für Reset)";
+            else {
+                let weite = ((px - jumpedAtX) / 40).toFixed(2);
+                statusLabel.innerText = "WEITE: " + weite + " METER! (R für Reset)";
+            }
+        }
+
+        function drawMan(x, y, color, anim) {
+            var bob = isJumping ? 0 : Math.sin(anim)*5;
+            var leg = isJumping ? 20 : Math.cos(anim)*15;
+            ctx.strokeStyle = color; ctx.lineWidth = 5;
+            ctx.beginPath(); ctx.arc(x, y-45+bob, 12, 0, 7); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y-33+bob); ctx.lineTo(x, y+5+bob); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y+5+bob); ctx.lineTo(x+leg, y+35); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y+5+bob); ctx.lineTo(x-leg, y+35); ctx.stroke();
+        }
+
+        window.onkeydown = function(e) {
+            if (e.key.toLowerCase() === "r") location.reload();
+            if (finished) return;
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                if (e.key !== plastKey && !isJumping) {
+                    running = true; pspeed += 2.2; plastKey = e.key;
                 }
-            };
-            render();
+            }
+            if (e.key === " " && !isJumping && running) {
+                isJumping = true; jumpedAtX = px;
+                var pow = 18;
+                var t = setInterval(() => {
+                    pjump -= pow; pow -= 1.2;
+                    if(pjump >= 0) { pjump = 0; clearInterval(t); stopGame(); }
+                }, 25);
+            }
         };
     </script>
 </body>
