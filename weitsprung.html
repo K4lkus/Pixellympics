@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Pixellympics - Weitsprung</title>
+    <style>
+        body { background: #111; color: white; text-align: center; font-family: sans-serif; }
+        canvas { background: #e67e22; border: 5px solid white; display: block; margin: 20px auto; }
+        .back-link { color: #aaa; text-decoration: none; border: 1px solid #555; padding: 5px 10px; }
+    </style>
+</head>
+<body>
+
+    <h1>WEITSPRUNG</h1>
+    <p id="status">Lauf so schnell du kannst!</p>
+    <a href="index.html" class="back-link">Zurück zum Menü</a>
+
+    <canvas id="jumpCanvas" width="800" height="250"></canvas>
+
+    <script>
+        window.onload = function() {
+            var canvas = document.getElementById('jumpCanvas');
+            var ctx = canvas.getContext('2d');
+            var statusLabel = document.getElementById('status');
+
+            var x = 50;
+            var speed = 0;
+            var jumpY = 0;
+            var isJumping = false;
+            var lastKey = "";
+            var finished = false;
+            var jumpedAtX = 0;
+
+            function render() {
+                ctx.fillStyle = "#e67e22"; // Sand/Bahn-Farbe
+                ctx.fillRect(0, 0, 800, 250);
+
+                // Absprunglinie (Weiß/Rot)
+                ctx.fillStyle = "white";
+                ctx.fillRect(550, 150, 50, 10);
+                ctx.fillStyle = "red";
+                ctx.fillRect(600, 150, 10, 10);
+
+                // Sandgrube (helleres Orange/Gelb)
+                ctx.fillStyle = "#f1c40f";
+                ctx.fillRect(610, 160, 190, 80);
+
+                // Logik
+                if (!finished) {
+                    speed *= 0.96;
+                    x += speed;
+                }
+
+                // Zeichnen
+                ctx.strokeStyle = "black";
+                ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.arc(x, 160 + jumpY, 12, 0, 7); ctx.stroke(); // Kopf
+                ctx.beginPath(); ctx.moveTo(x, 172 + jumpY); ctx.lineTo(x, 200 + jumpY); ctx.stroke(); // Körper
+
+                window.requestAnimationFrame(render);
+            }
+
+            window.onkeydown = function(e) {
+                if (finished) return;
+
+                if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                    if (e.key !== lastKey) {
+                        speed += 2.2;
+                        lastKey = e.key;
+                    }
+                }
+
+                if (e.key === " " && !isJumping) {
+                    isJumping = true;
+                    jumpedAtX = x;
+                    var power = 15;
+                    var timer = setInterval(function() {
+                        jumpY -= power;
+                        power -= 1;
+                        if (jumpY >= 0) {
+                            jumpY = 0;
+                            isJumping = false;
+                            finished = true;
+                            clearInterval(timer);
+                            
+                            // Ergebnis berechnen
+                            if (jumpedAtX > 600) {
+                                statusLabel.innerText = "UNGÜLTIG! Übertreten!";
+                            } else {
+                                var weite = ((x - jumpedAtX) / 20).toFixed(2);
+                                statusLabel.innerText = "Sprungweite: " + weite + " Meter!";
+                            }
+                        }
+                    }, 20);
+                }
+            };
+            render();
+        };
+    </script>
+</body>
+</html>
