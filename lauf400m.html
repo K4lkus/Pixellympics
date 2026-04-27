@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Pixel Games - 400m Ausdauer</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #1a1a1a; font-family: 'Press Start 2P', cursive; }
+        .ui-overlay { position: absolute; top: 20px; width: 100%; z-index: 10; pointer-events: none; text-align: center; }
+        .back-btn { pointer-events: auto; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; padding: 10px; border: 3px solid #fff; background: #333; color: white; cursor: pointer; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        
+        /* Ausdauer-Balken UI */
+        #stamina-container {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            width: 300px; height: 25px; border: 4px solid white; background: #222;
+        }
+        #stamina-bar { width: 100%; height: 100%; background: #2ecc71; transition: background 0.2s; }
+        .stamina-label { position: absolute; top: -25px; left: 0; font-size: 0.6rem; color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="ui-overlay">
+        <a href="index.html"><button class="back-btn">ZURÜCK ZUM HUB</button></a>
+        <div id="status" style="color: #f1c40f; margin-top: 15px; font-size: 0.8rem;">FINDE DEINEN RHYTHMUS!</div>
+    </div>
+
+    <div id="stamina-container">
+        <div class="stamina-label">AUSDAUER (STAMINA)</div>
+        <div id="stamina-bar"></div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        var canvas = document.getElementById('gameCanvas');
+        var ctx = canvas.getContext('2d');
+        var statusLabel = document.getElementById('status');
+        var staminaBar = document.getElementById('stamina-bar');
+
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        // Spielwerte
+        var px = 50, pspeed = 0, plastKey = "", pAnim = 0;
+        var stamina = 100;
+        var running = false, finished = false, startTime = 0, cameraX = 0;
+        
+        // Gegner (konstante Pace)
+        var oppx = 50, oppSpeed = 4.2;
+
+        function render() {
+            cameraX = px - (canvas.width * 0.2);
+            if (cameraX < 0) cameraX = 0;
+
+            let midH = canvas.height * 0.4;
+
+            // --- STADION & HIMMEL ---
+            ctx.fillStyle = "#4da6ff"; ctx.fillRect(0, 0, canvas.width, midH);
+            let stadiumX = -(cameraX * 0.4) % 400;
+            ctx.fillStyle = "#7f8c8d"; ctx.fillRect(0, midH - 120, canvas.width, 120);
+            for (let i = -1; i < (canvas.width / 400) + 2; i++) {
+                let sPos = (i * 400) + stadiumX;
+                for (let y = midH - 110; y < midH - 10; y += 15) {
+                    for (let x = 10; x < 380; x += 20) {
+                        ctx.fillStyle = ["#e74c3c","#f1c40f","#3498db","#ecf0f1"][(x+y)%4];
+                        ctx.fillRect(sPos + x, y, 8, 8);
+                    }
+                }
+            }
+
+            // --- BAHN ---
+            ctx.fillStyle = "#27ae60"; ctx.fillRect(0, midH, canvas.width, canvas.height - midH);
+            let laneH = (canvas.height - midH) / 5;
+            ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 4;
+            for(let j=0; j<6; j++) {
+                ctx.beginPath(); ctx.moveTo(0, midH + j * laneH); ctx.lineTo(canvas.width, midH + j * laneH); ctx.stroke();
+            }
+
+            // Distanzmarkierungen (400m sind hier 6000 Pixel)
+            ctx.fillStyle = "white";
+            for(let m=1000; m<=5000; m+=1000) {
+                ctx.fillRect(m - cameraX, midH, 10, canvas.height - midH);
+            }
+            
+            // Ziellinie
+            ctx.fillStyle = "gold";
+            ctx.fillRect(6000 - cameraX, midH, 60, canvas.height - midH);
+
+            // --- LOGIK ---
+            if (running && !finished) {
+                // Reibung / Verlangsamung
+                pspeed *= 0.97;
+                
+                // Ausdauer-Einfluss
+                if (stamina <= 0) {
+                    pspeed *= 0.8; // Massiver Einbruch wenn leer
+                    statusLabel.innerText = "ERSCHÖPFT! RHYTHMUS FINDEN!";
+                    statusLabel.style.color = "#ee5253";
+                } else {
+                    statusLabel.style.color = "#f1c40f";
+                }
+
+                px += pspeed;
+                oppx += oppSpeed;
+                if (pspeed > 0.1) pAnim += pspeed * 0.12;
+
+                // Ausdauer regeneriert sich langsam
+                if (stamina < 100) stamina += 0.05;
+
+                // UI Update
+                staminaBar.style.width = stamina + "%";
+                staminaBar.style.backgroundColor = stamina < 30 ? "#ee5253" : "#2ecc71";
+
+                let zeit = ((Date.now() - startTime)/1000).toFixed(2);
+                let dist = (px/15).toFixed(0);
+                if (px < 6000) statusLabel.innerText = dist + "m | ZEIT: " + zeit + "s";
+
+                if (px > 6000 || oppx > 6000) {
+                    finished = true;
+                    statusLabel.innerText = (px > oppx ? "SIEG! Zeit: " : "NIEDERLAGE! Zeit: ") + zeit + "s (R)";
+                }
+            }
+
+            // --- ATHLETEN ---
+            drawMan(px - cameraX, midH + laneH*3.5, "black", pAnim);
+            drawMan(oppx - cameraX, midH + laneH*1.5, "blue", oppx * 0.1);
+
+            requestAnimationFrame(render);
+        }
+
+        function drawMan(x, y, color, anim) {
+            let bob = Math.sin(anim) * 5; let leg = Math.cos(anim) * 15;
+            ctx.strokeStyle = color; ctx.lineWidth = 6;
+            ctx.beginPath(); ctx.arc(x, y-60+bob, 15, 0, 7); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y-45+bob); ctx.lineTo(x, y+10+bob); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y+10+bob); ctx.lineTo(x+leg, y+50); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y+10+bob); ctx.lineTo(x-leg, y+50); ctx.stroke();
+        }
+
+        window.onkeydown = function(e) {
+            if (e.key.toLowerCase() === "r") location.reload();
+            if (finished) return;
+
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                if (e.key !== plastKey) {
+                    if(!running) { running = true; startTime = Date.now(); }
+                    
+                    // Jedes Drücken kostet Ausdauer
+                    if (stamina > 0) {
+                        pspeed += 2.0;
+                        stamina -= 1.8; 
+                    } else {
+                        pspeed += 0.4; // Kaum Speed wenn Ausdauer weg
+                    }
+                    plastKey = e.key;
+                }
+            }
+        };
+        render();
+    </script>
+</body>
+</html>
