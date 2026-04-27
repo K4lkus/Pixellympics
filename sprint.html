@@ -5,42 +5,34 @@
     <title>Pixel Games - 100m Sprint</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-        body { background: #1a1a1a; color: white; text-align: center; font-family: 'Press Start 2P', cursive; margin: 0; padding: 20px; overflow: hidden; }
+        body { background: #1a1a1a; color: white; text-align: center; font-family: 'Press Start 2P', cursive; margin: 0; padding: 20px; }
         canvas { background: #27ae60; border: 6px solid #fff; display: block; margin: 10px auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .ui-top { margin-bottom: 10px; }
         .diff-btn { font-family: 'Press Start 2P', cursive; font-size: 0.7rem; padding: 10px; margin: 5px; cursor: pointer; border: 3px solid #fff; background: #333; color: white; }
-        .diff-btn:hover { background: #ee5253; }
         .active { background: #ee5253; border-color: #f1c40f; }
-        .status { font-size: 0.8rem; color: #f1c40f; margin: 10px; height: 1rem; }
-        .back { color: #aaa; text-decoration: none; font-family: sans-serif; font-size: 0.9rem; }
+        .status { font-size: 0.8rem; color: #f1c40f; margin: 10px; height: 1.5rem; }
     </style>
 </head>
 <body>
 
-    <div class="ui-top">
+    <div>
         <button class="diff-btn" onclick="setDiff(3.5, this)">LEICHT</button>
         <button class="diff-btn active" onclick="setDiff(4.6, this)">MITTEL</button>
-        <button class="diff-btn" onclick="setDiff(5.5, this)">PROFI</button>
+        <button class="diff-btn" onclick="setDiff(5.8, this)">PROFI</button>
     </div>
 
-    <div id="status" class="status">DRÜCKE LINKS/RECHTS ZUM START!</div>
+    <div id="status" class="status">HÄMMER DIE PFEILTASTEN!</div>
 
     <canvas id="sprintCanvas" width="800" height="350"></canvas>
-    <a href="index.html" class="back">← ZURÜCK ZUM HUB</a>
+    <p style="font-family: sans-serif; color: #7f8c8d;">Drücke "R" für Neustart | <a href="index.html" style="color: #aaa;">Zum Hub</a></p>
 
     <script>
-        var canvas, ctx, statusLabel;
+        var canvas = document.getElementById('sprintCanvas');
+        var ctx = canvas.getContext('2d');
+        var statusLabel = document.getElementById('status');
+
         var px = 50, pspeed = 0, plastKey = "", pAnim = 0;
         var oppx = 50, oppSpeed = 4.6;
-        var running = false, finished = false, startTime = 0;
-        var cameraX = 0;
-
-        window.onload = function() {
-            canvas = document.getElementById('sprintCanvas');
-            ctx = canvas.getContext('2d');
-            statusLabel = document.getElementById('status');
-            render();
-        };
+        var running = false, finished = false, startTime = 0, cameraX = 0;
 
         window.setDiff = function(s, btn) {
             if(running) return;
@@ -53,33 +45,32 @@
             cameraX = px - 150;
             if (cameraX < 0) cameraX = 0;
 
-            // STADION HINTERGRUND
+            // --- STADION ZEICHNEN ---
             ctx.fillStyle = "#2c3e50"; // Himmel
             ctx.fillRect(0, 0, 800, 350);
 
-            // Tribünen (Parallax)
             let stadiumX = -(cameraX * 0.4) % 400;
             for (let i = -1; i < 4; i++) {
                 let sPos = (i * 400) + stadiumX;
-                ctx.fillStyle = "#7f8c8d"; // Beton
+                ctx.fillStyle = "#7f8c8d"; // Beton der Tribüne
                 ctx.fillRect(sPos, 40, 380, 110);
-                // Zuschauer
-                for (let y = 50; y < 140; y += 12) {
-                    for (let x = 10; x < 370; x += 18) {
-                        ctx.fillStyle = ["#e74c3c","#f1c40f","#3498db","#ecf0f1"][Math.floor(Math.random()*4)];
-                        ctx.fillRect(sPos + x + (y%15), y, 7, 7);
+                
+                // Zuschauer-Pixel
+                for (let y = 55; y < 140; y += 15) {
+                    for (let x = 10; x < 370; x += 20) {
+                        ctx.fillStyle = ["#e74c3c","#f1c40f","#3498db","#ecf0f1"][(x+y)%4];
+                        ctx.fillRect(sPos + x, y, 8, 8);
                     }
                 }
-                ctx.fillStyle = "#34495e"; // Masten
-                ctx.fillRect(sPos + 185, 0, 10, 150);
             }
 
-            // RENNBAHN
-            ctx.fillStyle = "#27ae60";
+            // --- BAHN ZEICHNEN ---
+            ctx.fillStyle = "#27ae60"; // Rasen
             ctx.fillRect(0, 150, 800, 200);
+            
             ctx.strokeStyle = "white"; ctx.lineWidth = 4;
             for(let j=0; j<4; j++) {
-                ctx.beginPath(); ctx.moveTo(0, 150 + j*60); ctx.lineTo(800, 150 + j*60); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, 150 + j*65); ctx.lineTo(800, 150 + j*65); ctx.stroke();
             }
 
             // Ziellinie
@@ -90,17 +81,19 @@
             if (running && !finished) {
                 pspeed *= 0.96; px += pspeed; oppx += oppSpeed;
                 if (pspeed > 0.1) pAnim += pspeed * 0.12;
+                
                 let zeit = ((Date.now() - startTime)/1000).toFixed(2);
                 statusLabel.innerText = "ZEIT: " + zeit + "s";
+
                 if (px > 1550 || oppx > 1550) {
                     finished = true;
-                    statusLabel.innerText = (px > oppx ? "SIEG! " : "NIEDERLAGE! ") + "R FÜR RESET";
+                    statusLabel.innerText = (px > oppx ? "SIEG! " : "LOSE! ") + " DRÜCKE 'R'";
                 }
             }
 
             drawMan(px - cameraX, 280, "black", pAnim);
             drawMan(oppx - cameraX, 210, "blue", oppx * 0.1);
-            window.requestAnimationFrame(render);
+            requestAnimationFrame(render);
         }
 
         function drawMan(x, y, color, anim) {
@@ -114,15 +107,18 @@
         }
 
         window.onkeydown = function(e) {
-            if (e.key.toLowerCase() === "r") location.reload();
+            let key = e.key.toLowerCase();
+            if (key === "r") { location.reload(); } // Reset funktioniert jetzt immer
+            
             if (finished) return;
-            if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+            if (key === "arrowleft" || key === "arrowright") {
                 if (e.key !== plastKey) {
                     if(!running) { running = true; startTime = Date.now(); }
                     pspeed += 2.6; plastKey = e.key;
                 }
             }
         };
+        render();
     </script>
 </body>
 </html>
