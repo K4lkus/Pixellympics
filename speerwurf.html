@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Pixel Games - Speerwurf</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #1a1a1a; font-family: 'Press Start 2P', cursive; }
+        .ui-overlay { position: absolute; top: 20px; width: 100%; z-index: 10; pointer-events: none; text-align: center; }
+        .back-btn { pointer-events: auto; font-family: 'Press Start 2P', cursive; font-size: 0.6rem; padding: 10px; border: 3px solid #fff; background: #333; color: white; cursor: pointer; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        
+        /* Das Winkel-Meter Design */
+        #meter-container {
+            position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
+            width: 200px; height: 20px; border: 4px solid white; background: #333;
+            display: none; /* Erscheint erst beim Drücken */
+        }
+        #meter-bar { width: 0%; height: 100%; background: #ee5253; }
+        #target-zone {
+            position: absolute; left: 45%; width: 10%; height: 100%;
+            background: rgba(46, 204, 113, 0.6); border-left: 2px solid white; border-right: 2px solid white;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ui-overlay">
+        <a href="index.html"><button class="back-btn">ZURÜCK ZUM HUB</button></a>
+        <div id="status" style="color: #f1c40f; margin-top: 15px; font-size: 0.8rem;">ANLAUF & LEERTASTE GEDRÜCKT HALTEN FÜR WINKEL!</div>
+    </div>
+
+    <div id="meter-container">
+        <div id="target-zone"></div>
+        <div id="meter-bar"></div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        var canvas = document.getElementById('gameCanvas');
+        var ctx = canvas.getContext('2d');
+        var statusLabel = document.getElementById('status');
+        var meterContainer = document.getElementById('meter-container');
+        var meterBar = document.getElementById('meter-bar');
+
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        // Spielvariablen
+        var px = 50, pspeed = 0, plastKey = "", pAnim = 0;
+        var running = true, finished = false, cameraX = 0;
+        
+        // Wurf-Variablen
+        var isCharging = false, angle = 0, angleDir = 1;
+        var spearX = 0, spearY = 0, spearVX = 0, spearVY = 0, spearAngle = 0;
+        var spearThrown = false, throwX = 0;
+
+        function render() {
+            // Kamera folgt dem Spieler oder dem Speer
+            if (!spearThrown) {
+                cameraX = px - (canvas.width * 0.3);
+            } else {
+                cameraX = spearX - (canvas.width * 0.5);
+            }
+            if (cameraX < 0) cameraX = 0;
+
+            let midH = canvas.height * 0.4;
+
+            // STADION & HIMMEL
+            ctx.fillStyle = "#4da6ff"; ctx.fillRect(0, 0, canvas.width, midH);
+            let stadiumX = -(cameraX * 0.4) % 400;
+            ctx.fillStyle = "#7f8c8d"; ctx.fillRect(0, midH - 120, canvas.width, 120);
+            for (let i = -1; i < (canvas.width / 400) + 2; i++) {
+                let sPos = (i * 400) + stadiumX;
+                for (let y = midH - 110; y < midH - 10; y += 15) {
+                    for (let x = 10; x < 380; x += 20) {
+                        ctx.fillStyle = ["#e74c3c","#f1c40f","#3498db","#ecf0f1"][(x+y)%4];
+                        ctx.fillRect(sPos + x, y, 8, 8);
+                    }
+                }
+            }
+
+            // BODEN & GRÜN
+            ctx.fillStyle = "#27ae60"; ctx.fillRect(0, midH, canvas.width, canvas.height - midH);
+            let trackY = midH + (canvas.height - midH) * 0.3;
+            
+            // Anlaufbahn & Abwurflinie (bei x=1000)
+            ctx.fillStyle = "#c0392b"; ctx.fillRect(0 - cameraX, trackY, 1000, 80);
+            ctx.fillStyle = "white"; ctx.fillRect(1000 - cameraX, trackY, 20, 80); // Abwurf-Linie
+            ctx.fillStyle = "#2ecc71"; ctx.fillRect(1020 - cameraX, trackY + 75, 3000, 5); // Bodenlinie für Speer-Landung
+
+            // LOGIK
+            if (!finished) {
+                if (!spearThrown) {
+                    pspeed *= 0.97; px += pspeed;
+                    pAnim += pspeed * 0.15;
+
+                    if (isCharging) {
+                        angle += 2 * angleDir;
+                        if (angle >= 100 || angle <= 0) angleDir *= -1;
+                        meterBar.style.width = angle + "%";
+                    }
+                    
+                    // Foul-Check
+                    if (px > 1010) {
+                        finished = true;
+                        statusLabel.innerText = "UNGUELTIG! UEBERTRETEN! (R)";
+                    }
+                } else {
+                    // Physik des Speers
+                    spearX += spearVX;
+                    spearY += spearVY;
+                    spearVY += 0.25; // Schwerkraft
+                    spearAngle = Math.atan2(spearVY, spearVX);
+
+                    // Landung
+                    if (spearY >= trackY + 75) {
+                        spearY = trackY + 75;
+                        finished = true;
+                        let dist = ((spearX - 1000) / 20).toFixed(2);
+                        statusLabel.innerText = "WEITE: " + dist + " METER! (R)";
+                    }
+                }
+            }
+
+            // ZEICHNEN
+            if (!spearThrown) {
+                drawMan(px - cameraX, trackY + 20, "black", pAnim);
+            } else {
+                drawSpear(spearX - cameraX, spearY, spearAngle);
+            }
+
+            requestAnimationFrame(render);
+        }
+
+        function drawMan(x, y, color, anim) {
+            let bob = Math.sin(anim) * 5; let leg = Math.cos(anim) * 15;
+            ctx.strokeStyle = color; ctx.lineWidth = 6;
+            ctx.beginPath(); ctx.arc(x, y-60+bob, 15, 0, 7); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y-45+bob); ctx.lineTo(x, y+10+bob); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y+10+bob); ctx.lineTo(x+leg, y+50); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y+10+bob); ctx.lineTo(x-leg, y+50); ctx.stroke();
+            // Speer in der Hand
+            ctx.strokeStyle = "#f39c12"; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(x-20, y-30+bob); ctx.lineTo(x+30, y-50+bob); ctx.stroke();
+        }
+
+        function drawSpear(x, y, a) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(a);
+            ctx.strokeStyle = "#f39c12"; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(-40, 0); ctx.lineTo(40, 0); ctx.stroke();
+            ctx.fillStyle = "silver"; ctx.beginPath(); ctx.moveTo(40, 0); ctx.lineTo(30, -5); ctx.lineTo(30, 5); ctx.fill();
+            ctx.restore();
+        }
+
+        window.onkeydown = function(e) {
+            if (e.key.toLowerCase() === "r") location.reload();
+            if (finished || spearThrown) return;
+
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                if (e.key !== plastKey && !isCharging) {
+                    pspeed += 2.2; plastKey = e.key;
+                }
+            }
+            if (e.key === " " && pspeed > 1) {
+                isCharging = true;
+                meterContainer.style.display = "block";
+            }
+        };
+
+        window.onkeyup = function(e) {
+            if (e.key === " " && isCharging && !spearThrown) {
+                isCharging = false;
+                spearThrown = true;
+                meterContainer.style.display = "none";
+                
+                // Wurf-Berechnung
+                // Winkel 50% im Meter entspricht ca. 45 Grad
+                let finalAngle = (angle / 100) * (Math.PI / 2); // 0 bis 90 Grad
+                let power = pspeed * 1.5;
+                
+                spearX = px;
+                spearY = (canvas.height * 0.4) + ((canvas.height - (canvas.height * 0.4)) * 0.3) - 20;
+                spearVX = Math.cos(finalAngle) * power;
+                spearVY = -Math.sin(finalAngle) * power;
+                
+                statusLabel.innerText = "SPEER FLIEGT!";
+            }
+        };
+
+        render();
+    </script>
+</body>
+</html>
